@@ -1,0 +1,2 @@
+-- Datos iniciales (EIA, usuarios invitados, pilares, servicios y la serie).
+-- Se completa en el paso 4 de la V1-alpha. Ver docs/ARQUITECTURA.md (sección 13 y Anexo A).
