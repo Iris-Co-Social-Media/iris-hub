@@ -1,0 +1,16 @@
+@import 'tailwindcss';
+
+/* Identidad de Iris & Co (ver docs/ARQUITECTURA.md, Anexo B) */
+@theme {
+  --font-sans: 'Nunito Sans', ui-sans-serif, system-ui, sans-serif;
+
+  --color-iris-violet: #421869;
+  --color-iris-lavender: #c5bdef;
+  --color-iris-lilac: #e2d7ec;
+  --color-iris-lime: #d0eca5;
+  --color-iris-cream: #fffeec;
+}
+
+body {
+  @apply bg-iris-cream font-sans text-iris-violet antialiased;
+}
