@@ -1,0 +1,21 @@
+// Configuración de Cloudflare Workers (ver docs/ARQUITECTURA.md).
+// El sitio es una SPA de React + Vite: Workers solo sirve los archivos de
+// ./dist (no hay código de servidor). Sin secretos: nunca van en este archivo.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Tiene que coincidir con el nombre del Worker en el panel de Cloudflare.
+  "name": "iris-hub",
+  "compatibility_date": "2026-09-30",
+  "assets": {
+    "directory": "./dist",
+    // Cualquier dirección que no sea un archivo (/ingreso, rutas futuras de
+    // React Router) devuelve index.html, así funciona entrar directo o recargar.
+    "not_found_handling": "single-page-application"
+  },
+  "observability": {
+    "enabled": true
+  },
+  // Obligatorio para Worker Previews (vistas previas por rama). Vacío porque el
+  // sitio no usa variables, secretos ni recursos de Workers en tiempo de ejecución.
+  "previews": {}
+}
