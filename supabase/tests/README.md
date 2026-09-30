@@ -16,3 +16,4 @@ Archivos:
   aprobador, lector, otro cliente, sin invitación, acceso quitado, sin sesión).
 - `database/02_auth.test.sql` — hook de invitación, vinculación de invitaciones y perfiles.
 - `database/03_initial_admin.test.sql` — invitación inicial de admin: datos, hook, vinculación al entrar y claim_invitations.
+- `seed/seed.test.sql` — datos iniciales (`supabase/seed.sql`): contenido, RLS sobre esos datos y que correrlo dos veces no duplique ni pise ediciones. Corre en una base aparte con migraciones + seed.

@@ -44,5 +44,18 @@ for f in "$ROOT"/supabase/migrations/*.sql; do
   psql -q -v ON_ERROR_STOP=1 -f "$f"
 done
 
-echo "→ Pruebas de permisos"
-pg_prove --ext .sql -r "$ROOT/supabase/tests"
+echo "→ Pruebas de permisos (base vacía)"
+pg_prove --ext .sql -r "$ROOT/supabase/tests/database"
+
+# Segunda base: migraciones + seed.sql, para probar los datos iniciales.
+echo "→ Base con datos iniciales (seed.sql)"
+psql -q -v ON_ERROR_STOP=1 -d postgres -c 'create database iris_seed'
+psql -q -v ON_ERROR_STOP=1 -d iris_seed -c 'alter database iris_seed set search_path = "$user", public, extensions'
+psql -q -v ON_ERROR_STOP=1 -d iris_seed -f "$ROOT/scripts/db-local/supabase-shim.sql"
+for f in "$ROOT"/supabase/migrations/*.sql; do
+  psql -q -v ON_ERROR_STOP=1 -d iris_seed -f "$f"
+done
+psql -q -v ON_ERROR_STOP=1 -d iris_seed -f "$ROOT/supabase/seed.sql"
+
+echo "→ Pruebas del seed"
+PGDATABASE=iris_seed pg_prove --ext .sql -r "$ROOT/supabase/tests/seed"
