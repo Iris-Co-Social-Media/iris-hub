@@ -129,6 +129,11 @@ function PieceView({ slug, bundle, pillarName }: { slug: string; bundle: PieceBu
         )}
       </section>
 
+      {/* Descripción / idea (solo si se cargó) */}
+      {piece.description?.trim() && (
+        <TextBlock title="Descripción / idea" text={piece.description} copyWhat="descripción" />
+      )}
+
       {/* Guion (reels) */}
       {piece.script?.trim() && (
         <TextBlock title="Guion" text={piece.script} copyWhat="guion" large />

@@ -86,6 +86,13 @@ export function PieceDataForm({
       <fieldset className="space-y-4 rounded-2xl bg-white p-4 ring-1 ring-iris-lilac">
         <legend className="px-1 text-sm font-extrabold">Lo básico</legend>
         <TextField label="Título" required value={values.title} onChange={(v) => set('title', v)} error={errors.title} />
+        <TextArea
+          label="Descripción / idea"
+          hint="Opcional. Qué se quiere contar o desarrollar en esta publicación."
+          rows={5}
+          value={values.description}
+          onChange={(v) => set('description', v)}
+        />
         <div className="grid gap-4 sm:grid-cols-2">
           <SelectField
             label="Formato"

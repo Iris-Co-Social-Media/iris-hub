@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabase'
 // ideas), la base no la devuelve y la pantalla muestra "no encontrada".
 
 const PIECE_COLUMNS = [
-  'id', 'client_id', 'monthly_plan_id', 'title', 'format', 'platform', 'estimated_date',
+  'id', 'client_id', 'monthly_plan_id', 'title', 'description', 'format', 'platform', 'estimated_date',
   'status', 'review_status', 'review_note', 'pillar_id', 'service_id', 'series_id',
   'project_id', 'objective', 'interaction', 'needs_client_on_camera', 'script',
   'publish_copy', 'canva_url', 'album_url', 'times_carried_over', 'published_at', 'updated_at',

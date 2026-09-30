@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import type { PieceDetail } from './pieces'
 import {
   emptyForm,
+  formFromPiece,
   friendlyDbError,
   piecePayload,
   productionMoves,
@@ -41,6 +43,27 @@ describe('lo que se guarda', () => {
     expect(payload).not.toHaveProperty('status')
     expect(payload).not.toHaveProperty('review_status')
     expect(payload).not.toHaveProperty('review_note')
+  })
+})
+
+describe('descripción / idea', () => {
+  it('es opcional: vacía no bloquea el guardado', () => {
+    expect(validatePieceForm({ ...emptyForm(), title: 'Idea', description: '' })).toEqual({})
+    expect(piecePayload({ ...emptyForm(), title: 'Idea', description: '   ' }).description).toBeNull()
+  })
+
+  it('se guarda al crear y al editar (texto largo, con saltos de línea)', () => {
+    const text = 'Mostrar el antes y después de la obra.\n\nCerrar con la familia.'
+    expect(piecePayload({ ...emptyForm(), title: 'Idea', description: `  ${text}  ` }).description).toBe(text)
+  })
+
+  it('se lee de la pieza guardada y no toca otros campos', () => {
+    const piece = { title: 'Idea', format: 'post', interaction: 'none', needs_client_on_camera: false, description: 'La idea' } as PieceDetail
+    const values = formFromPiece(piece)
+    expect(values.description).toBe('La idea')
+    expect(values.objective).toBe('')
+    expect(values.publish_copy).toBe('')
+    expect(formFromPiece({ ...piece, description: null }).description).toBe('')
   })
 })
 

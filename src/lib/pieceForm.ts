@@ -18,6 +18,8 @@ const optionalUrl = z
 
 export const pieceFormSchema = z.object({
   title: z.string().trim().min(1, 'El título es obligatorio.').max(300, 'El título es demasiado largo.'),
+  // Opcional: puede quedar vacía.
+  description: z.string(),
   format: z.enum(['story', 'post', 'carousel', 'reel'], { message: 'Elegí un formato.' }),
   estimated_date: z
     .string()
@@ -40,6 +42,7 @@ export type PieceFormValues = z.infer<typeof pieceFormSchema>
 export function emptyForm(): PieceFormValues {
   return {
     title: '',
+    description: '',
     format: 'post',
     estimated_date: '',
     pillar_id: '',
@@ -59,6 +62,7 @@ export function emptyForm(): PieceFormValues {
 export function formFromPiece(piece: PieceDetail): PieceFormValues {
   return {
     title: piece.title,
+    description: piece.description ?? '',
     format: piece.format,
     estimated_date: piece.estimated_date ?? '',
     pillar_id: piece.pillar_id ?? '',
@@ -81,6 +85,7 @@ const orNull = (value: string) => (value.trim() === '' ? null : value.trim())
 export function piecePayload(values: PieceFormValues) {
   return {
     title: values.title.trim(),
+    description: orNull(values.description),
     format: values.format,
     estimated_date: orNull(values.estimated_date),
     pillar_id: orNull(values.pillar_id),

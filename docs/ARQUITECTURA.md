@@ -328,6 +328,7 @@ Regla: `awaiting_recording` y `recorded` solo son válidos cuando `format = 'ree
 | client_id | uuid | |
 | monthly_plan_id | uuid, null | null significa que está en el Banco de ideas |
 | title | text | |
+| description | text, null | "Descripción / idea": texto libre y opcional del equipo; no reemplaza objetivo, guion ni copy |
 | format | piece_format | |
 | platform | text | 'instagram' por defecto |
 | estimated_date | date, null | es una fecha estimativa |

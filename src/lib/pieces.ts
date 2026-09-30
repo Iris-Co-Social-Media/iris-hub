@@ -139,6 +139,7 @@ export type PieceDetail = PieceSummary & {
   client_id: string
   monthly_plan_id: string | null
   platform: string
+  description: string | null
   review_note: string | null
   service_id: string | null
   series_id: string | null
