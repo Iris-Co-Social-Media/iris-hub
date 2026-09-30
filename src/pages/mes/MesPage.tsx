@@ -3,6 +3,7 @@ import { Link, Navigate, useParams, useSearchParams } from 'react-router'
 import { AppLayout } from '../../components/AppLayout'
 import { addMonths, capitalizeFirst, currentMonthKey, dayLabel, isMonthKey, monthLabel, type MonthKey } from '../../lib/dates'
 import { computeQuota, PLAN_STATUS_LABELS, sortPieces, type PieceSummary } from '../../lib/pieces'
+import { reviewProgress } from '../../lib/review'
 import { MonthCalendar } from './MonthCalendar'
 import { PieceList } from './PieceList'
 import { QuotaSummary } from './QuotaSummary'
@@ -70,6 +71,7 @@ function MonthScreen({ slug, month }: { slug: string; month: MonthKey }) {
   }
 
   const quota = computeQuota(pieces, client.data.quota_posts, client.data.quota_stories)
+  const review = reviewProgress(pieces)
   const plan = monthData.data?.plan ?? null
   const primary = client.data.brand_colors?.primary ?? '#421869'
   const monthPath = (key: MonthKey) => `/${slug}/mes/${key}${searchParams.toString() ? `?${searchParams}` : ''}`
@@ -124,15 +126,23 @@ function MonthScreen({ slug, month }: { slug: string; month: MonthKey }) {
       ) : (
         <>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
               {plan ? (
-                <span className="rounded-full bg-white px-3 py-1 font-semibold ring-1 ring-iris-lavender">
-                  {PLAN_STATUS_LABELS[plan.status]}
-                </span>
+                <>
+                  <span className="rounded-full bg-white px-3 py-1 font-semibold ring-1 ring-iris-lavender">
+                    {PLAN_STATUS_LABELS[plan.status]}
+                  </span>
+                  <Link
+                    to={`/${slug}/revision/${month}`}
+                    className="rounded-xl bg-iris-violet px-3 py-1.5 font-bold text-white"
+                  >
+                    Revisión {review.done}/{review.total} ›
+                  </Link>
+                </>
               ) : (
                 <span className="text-iris-violet/70">Sin planificación</span>
               )}
-            </p>
+            </div>
             <div role="tablist" aria-label="Vista" className="inline-flex rounded-xl bg-white p-1 ring-1 ring-iris-lavender">
               {(['calendario', 'lista'] as const).map((option) => (
                 <button

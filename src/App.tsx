@@ -6,6 +6,7 @@ import { IngresoPage } from './pages/ingreso/IngresoPage'
 import { InicioPage } from './pages/inicio/InicioPage'
 import { MesPage } from './pages/mes/MesPage'
 import { PiezaPage } from './pages/pieza/PiezaPage'
+import { RevisionPage } from './pages/revision/RevisionPage'
 
 export default function App() {
   return (
@@ -40,6 +41,14 @@ export default function App() {
           element={
             <RequireSession>
               <PiezaPage />
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/:slug/revision/:month?"
+          element={
+            <RequireSession>
+              <RevisionPage />
             </RequireSession>
           }
         />
