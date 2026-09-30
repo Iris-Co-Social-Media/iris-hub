@@ -16,6 +16,7 @@ export type ClientSummary = {
   brand_colors: { primary?: string; secondary?: string; background?: string }
   quota_posts: number
   quota_stories: number
+  publish_copy_enabled: boolean
 }
 
 export type Pillar = { id: string; name: string }
@@ -38,7 +39,7 @@ export function useClient(slug: string) {
     queryFn: async (): Promise<ClientSummary | null> => {
       const { data, error } = await supabase()
         .from('clients')
-        .select('id, name, slug, logo_url, brand_colors, quota_posts, quota_stories')
+        .select('id, name, slug, logo_url, brand_colors, quota_posts, quota_stories, publish_copy_enabled')
         .eq('slug', slug)
         .maybeSingle<ClientSummary>()
       if (error) throw error

@@ -150,6 +150,7 @@ export type PieceDetail = PieceSummary & {
   canva_url: string | null
   album_url: string | null
   published_at: string | null
+  updated_at: string
 }
 
 // Interacción de una pantalla: {type, question, options[], correct_index}.
@@ -169,6 +170,7 @@ export type PieceFrame = {
   visual_direction: string | null
   interaction: FrameInteraction | null
   closing: string | null
+  updated_at?: string
 }
 
 const clean = (text: string | null | undefined) => (text ?? '').trim()

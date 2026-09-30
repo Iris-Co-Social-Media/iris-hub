@@ -14,7 +14,8 @@ import {
   type PieceFrame,
 } from '../../lib/pieces'
 import { FormatBadge, ReviewBadge, StatusBadge } from '../mes/PieceBadges'
-import { useClient, usePillars } from '../mes/useMonthData'
+import { useClient, useIsTeam, usePillars } from '../mes/useMonthData'
+import { ProductionControls } from './ProductionControls'
 import { usePiece, type PieceBundle } from './usePieceData'
 
 // Pantalla "Pieza (detalle)" (docs/ARQUITECTURA.md §4): datos de la pieza y
@@ -44,6 +45,7 @@ export function PiezaPage() {
 }
 
 function PieceView({ slug, bundle, pillarName }: { slug: string; bundle: PieceBundle; pillarName: string | null }) {
+  const isTeam = useIsTeam().data ?? false
   const { piece, frames, plan, names } = bundle
   const backMonth: MonthKey = (plan?.month ?? piece.estimated_date ?? `${currentMonthKey()}-01`).slice(0, 7)
   const framesText = allFramesCopyText(frames)
@@ -67,7 +69,17 @@ function PieceView({ slug, bundle, pillarName }: { slug: string; bundle: PieceBu
           <h1 className="text-2xl font-extrabold leading-tight sm:text-3xl">{piece.title}</h1>
           <CopyButton text={piece.title} what="título" />
         </div>
+        {isTeam && (
+          <Link
+            to={`/${slug}/pieza/${piece.id}/editar`}
+            className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-iris-violet px-4 py-2 text-sm font-bold text-white"
+          >
+            Editar datos y pantallas
+          </Link>
+        )}
       </header>
+
+      {isTeam && <ProductionControls piece={piece} />}
 
       {piece.review_status === 'changes_requested' && piece.review_note && (
         <section className="mt-4 rounded-2xl bg-iris-violet/10 p-4 ring-1 ring-iris-violet">

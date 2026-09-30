@@ -10,7 +10,7 @@ const PIECE_COLUMNS = [
   'id', 'client_id', 'monthly_plan_id', 'title', 'format', 'platform', 'estimated_date',
   'status', 'review_status', 'review_note', 'pillar_id', 'service_id', 'series_id',
   'project_id', 'objective', 'interaction', 'needs_client_on_camera', 'script',
-  'publish_copy', 'canva_url', 'album_url', 'times_carried_over', 'published_at',
+  'publish_copy', 'canva_url', 'album_url', 'times_carried_over', 'published_at', 'updated_at',
 ].join(', ')
 
 export type PieceBundle = {
@@ -43,7 +43,7 @@ export function usePiece(clientId: string | undefined, pieceId: string) {
       const [frames, plan, service, series, project] = await Promise.all([
         supabase()
           .from('piece_frames')
-          .select('id, position, label, headline, body, visual_direction, interaction, closing')
+          .select('id, position, label, headline, body, visual_direction, interaction, closing, updated_at')
           .eq('piece_id', piece.id)
           .order('position')
           .returns<PieceFrame[]>(),

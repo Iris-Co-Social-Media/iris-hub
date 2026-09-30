@@ -143,6 +143,14 @@ function MonthScreen({ slug, month }: { slug: string; month: MonthKey }) {
                     Revisión {review.done}/{review.total} ›
                   </Link>
                   <PlanStatusActions plan={plan} isTeam={isTeam.data ?? false} />
+                  {isTeam.data && plan.status !== 'closed' && (
+                    <Link
+                      to={`/${slug}/pieza/nueva?mes=${month}`}
+                      className="rounded-xl bg-iris-violet px-3 py-1.5 font-bold text-white"
+                    >
+                      + Nueva pieza
+                    </Link>
+                  )}
                 </>
               ) : (
                 <span className="text-iris-violet/70">Sin planificación</span>
@@ -175,6 +183,14 @@ function MonthScreen({ slug, month }: { slug: string; month: MonthKey }) {
           ) : pieces.length === 0 ? (
             <div className="mt-4 rounded-2xl bg-white p-6 text-center ring-1 ring-iris-lilac">
               <p className="font-bold">La planificación de {monthLabel(month)} todavía no tiene piezas.</p>
+              {isTeam.data && plan.status !== 'closed' && (
+                <Link
+                  to={`/${slug}/pieza/nueva?mes=${month}`}
+                  className="mt-4 inline-flex rounded-xl bg-iris-violet px-4 py-3 text-sm font-bold text-white"
+                >
+                  + Crear la primera pieza
+                </Link>
+              )}
             </div>
           ) : view === 'lista' ? (
             <div className="mt-4">
