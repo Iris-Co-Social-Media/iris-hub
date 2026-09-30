@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { AuthLayout } from '../../components/AuthLayout'
 import { OTP_LENGTH, OTP_MINUTES, RESEND_SECONDS } from '../../lib/constants'
 import { supabase } from '../../lib/supabase'
+import { authRedirectUrl } from '../../lib/urls'
 
 // Ingreso (sección 2.3). Regla de privacidad: la pantalla NUNCA dice si un
 // mail está invitado. Siempre pasa al paso del código con el mismo mensaje;
@@ -64,7 +65,7 @@ function EmailStep({ oauthError, onSent }: { oauthError: boolean; onSent: (email
     setError(null)
     const { error: oauthStartError } = await supabase().auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/` },
+      options: { redirectTo: authRedirectUrl() },
     })
     if (oauthStartError) {
       setBusy(false)
@@ -225,10 +226,14 @@ function CodeStep({ email, onBack }: { email: string; onBack: () => void }) {
 // Pide el código. Cualquier respuesta de Supabase (enviado, mail no invitado,
 // límite de envíos) se trata igual, para no revelar invitaciones. Solo se
 // distingue la falta de conexión.
+//
+// El ingreso es con el código de 6 dígitos (las plantillas de mail solo
+// muestran {{ .Token }}). emailRedirectTo es un resguardo: si un mail llegara
+// con link, vuelve a este mismo sitio y no al "Site URL" de Supabase.
 async function sendCode(email: string): Promise<'done' | 'connection-error'> {
   const { error } = await supabase().auth.signInWithOtp({
     email,
-    options: { shouldCreateUser: true },
+    options: { shouldCreateUser: true, emailRedirectTo: authRedirectUrl() },
   })
   if (error && isAuthRetryableFetchError(error)) return 'connection-error'
   return 'done'
