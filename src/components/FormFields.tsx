@@ -136,3 +136,55 @@ export function CheckboxField({ label, checked, onChange }: { label: string; che
     </label>
   )
 }
+
+// Opciones de una sola elección, como botones (radio). Sirve para listas
+// cortas: se ven todas a la vez y se eligen con un toque.
+export function ChoiceField({
+  label,
+  hint,
+  error,
+  name,
+  value,
+  onChange,
+  options,
+  required,
+}: {
+  label: string
+  hint?: string
+  error?: string
+  name: string
+  value: string
+  onChange: (value: string) => void
+  options: { value: string; label: string }[]
+  required?: boolean
+}) {
+  return (
+    <fieldset className="min-w-0" aria-invalid={Boolean(error)}>
+      <legend className="text-sm font-bold">{label + (required ? ' *' : '')}</legend>
+      {hint && <span className="block text-xs text-iris-violet/70">{hint}</span>}
+      <div className="mt-1 flex flex-wrap gap-2">
+        {options.map((option) => (
+          <label
+            key={option.value}
+            className="flex min-h-11 cursor-pointer items-center rounded-xl border border-iris-lavender bg-white px-4 py-2 text-sm font-bold has-checked:border-iris-violet has-checked:bg-iris-violet has-checked:text-white has-focus-visible:ring-2 has-focus-visible:ring-iris-lavender"
+          >
+            <input
+              type="radio"
+              name={name}
+              value={option.value}
+              checked={value === option.value}
+              onChange={() => onChange(option.value)}
+              className="sr-only"
+            />
+            {option.label}
+          </label>
+        ))}
+      </div>
+      {error && (
+        <span role="alert" className="mt-1 block text-sm font-semibold text-iris-violet">
+          ⚠ {error}
+        </span>
+      )}
+    </fieldset>
+  )
+}

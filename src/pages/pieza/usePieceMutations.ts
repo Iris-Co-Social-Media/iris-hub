@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { framePayload, type FrameFormValues } from '../../lib/frames'
-import { CONFLICT_MESSAGE, friendlyDbError, piecePayload, type PieceFormValues } from '../../lib/pieceForm'
+import { CONFLICT_MESSAGE, friendlyDbError, piecePayload, targetFrameCount, type PieceFormValues } from '../../lib/pieceForm'
 import type { PieceStatus } from '../../lib/pieces'
 import { supabase } from '../../lib/supabase'
 
@@ -40,7 +40,16 @@ export function useCreatePiece() {
         .select('id')
         .single<{ id: string }>()
       if (error) throw new Error(friendlyDbError(error))
-      return data.id
+      // Serie de imágenes: se crean las pantallas vacías (la cantidad de
+      // imágenes son las pantallas). Si falla, la pieza ya existe: se avisa
+      // y las pantallas se pueden agregar a mano.
+      const count = targetFrameCount(input.values, null, 0) ?? 0
+      if (count > 0) {
+        const rows = Array.from({ length: count }, (_, i) => ({ piece_id: data.id, position: i + 1 }))
+        const frames = await supabase().from('piece_frames').insert(rows)
+        if (frames.error) return { id: data.id, framesFailed: true }
+      }
+      return { id: data.id, framesFailed: false }
     },
     onSuccess: invalidate,
   })
@@ -141,6 +150,27 @@ export function useMoveFrame() {
   const invalidate = useInvalidatePieces()
   return useMutation({
     mutationFn: async (changes: { id: string; position: number }[]) => applyPositions(changes),
+    onSettled: invalidate,
+  })
+}
+
+// Ajusta la cantidad de pantallas de una historia (agrega al final o quita
+// las últimas). Lo pide el formulario al cambiar la cantidad de imágenes o al
+// pasar a Imagen / Video; la confirmación para perder contenido va antes.
+export function useSyncFrameCount() {
+  const invalidate = useInvalidatePieces()
+  return useMutation({
+    mutationFn: async (input: { pieceId: string; add: number[]; removeIds: string[] }) => {
+      if (input.removeIds.length > 0) {
+        const { error } = await supabase().from('piece_frames').delete().in('id', input.removeIds)
+        if (error) throw new Error(`Los datos se guardaron, pero no se pudieron quitar pantallas. ${friendlyDbError(error)}`)
+      }
+      if (input.add.length > 0) {
+        const rows = input.add.map((position) => ({ piece_id: input.pieceId, position }))
+        const { error } = await supabase().from('piece_frames').insert(rows)
+        if (error) throw new Error(`Los datos se guardaron, pero no se pudieron agregar pantallas. ${friendlyDbError(error)}`)
+      }
+    },
     onSettled: invalidate,
   })
 }

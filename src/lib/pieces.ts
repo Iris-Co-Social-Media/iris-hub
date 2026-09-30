@@ -13,6 +13,28 @@ export const FORMAT_LABELS: Record<PieceFormat, string> = {
   reel: 'Reel',
 }
 
+// Tipo de contenido: sale del formato, no se guarda aparte.
+export type ContentKind = 'publication' | 'story'
+
+export const CONTENT_KIND_LABELS: Record<ContentKind, string> = {
+  publication: 'Publicación',
+  story: 'Historia',
+}
+
+export function contentKind(format: PieceFormat): ContentKind {
+  return format === 'story' ? 'story' : 'publication'
+}
+
+// Formato de una historia (pieces.story_type). La cantidad de imágenes de una
+// serie son sus pantallas (piece_frames).
+export type StoryType = 'image' | 'image_series' | 'video'
+
+export const STORY_TYPE_LABELS: Record<StoryType, string> = {
+  image: 'Imagen',
+  image_series: 'Serie de imágenes',
+  video: 'Video',
+}
+
 export const REVIEW_LABELS: Record<ReviewStatus, string> = {
   pending: 'Sin revisar',
   approved: 'Revisado',
@@ -130,8 +152,8 @@ export const OBJECTIVE_LABELS: Record<Objective, string> = {
 export const INTERACTION_LABELS: Record<InteractionType, string> = {
   none: 'Sin interacción',
   poll: 'Encuesta',
-  quiz: 'Quiz',
-  question: 'Pregunta',
+  quiz: 'Elegí la respuesta correcta',
+  question: 'Caja de preguntas',
   slider: 'Deslizador',
 }
 
@@ -139,6 +161,8 @@ export type PieceDetail = PieceSummary & {
   client_id: string
   monthly_plan_id: string | null
   platform: string
+  story_type: StoryType | null
+  story_images_open: boolean
   description: string | null
   review_note: string | null
   service_id: string | null

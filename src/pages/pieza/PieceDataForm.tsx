@@ -1,15 +1,33 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { CheckboxField, SelectField, TextArea, TextField } from '../../components/FormFields'
+import { CheckboxField, ChoiceField, SelectField, TextArea, TextField } from '../../components/FormFields'
 import { monthStartIso, type MonthKey } from '../../lib/dates'
 import {
-  FORMATS,
+  IMAGE_COUNT_LABELS,
+  IMAGE_COUNTS,
+  imageCountOption,
   INTERACTIONS,
+  lostDataMessage,
   OBJECTIVES,
+  PUBLICATION_FORMATS,
+  STORY_INTERACTIONS,
+  STORY_TYPES,
+  switchKind,
+  switchStoryType,
   validatePieceForm,
   type FormErrors,
+  type ImageCount,
   type PieceFormValues,
 } from '../../lib/pieceForm'
-import { FORMAT_LABELS, INTERACTION_LABELS, OBJECTIVE_LABELS, type PieceStatus } from '../../lib/pieces'
+import {
+  CONTENT_KIND_LABELS,
+  FORMAT_LABELS,
+  INTERACTION_LABELS,
+  OBJECTIVE_LABELS,
+  STORY_TYPE_LABELS,
+  type ContentKind,
+  type PieceStatus,
+  type StoryType,
+} from '../../lib/pieces'
 import { useCatalog, visibleOptions } from './useCatalogs'
 
 // Datos de la pieza (§6.2). Obligatorios: título y formato (lo que exige la
@@ -21,6 +39,7 @@ export function PieceDataForm({
   publishCopyEnabled,
   initial,
   currentStatus,
+  frameCount,
   submitLabel,
   busy,
   serverError,
@@ -33,6 +52,7 @@ export function PieceDataForm({
   publishCopyEnabled: boolean
   initial: PieceFormValues
   currentStatus?: PieceStatus
+  frameCount?: number // pantallas que ya tiene (solo al editar)
   submitLabel: string
   busy: boolean
   serverError: string | null
@@ -58,14 +78,24 @@ export function PieceDataForm({
     setErrors((current) => ({ ...current, [key]: undefined }))
   }
 
+  // Cambiar entre Publicación e Historia: si se pierde algo cargado, se pide
+  // confirmación; si no, se cambia directamente.
+  function chooseKind(next: ContentKind) {
+    const result = switchKind(values, next)
+    if (result.lost.length > 0 && !window.confirm(lostDataMessage(next, result.lost))) return
+    setValues(result.values)
+    setErrors((current) => ({ ...current, kind: undefined, format: undefined, story_type: undefined, image_count: undefined, interaction: undefined }))
+  }
+
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    const found = validatePieceForm(values, currentStatus)
+    const found = validatePieceForm(values, currentStatus, { frameCount })
     setErrors(found)
     if (Object.values(found).some(Boolean)) return
     onSubmit(values)
   }
 
+  const editing = currentStatus !== undefined
   const monthMin = month ? monthStartIso(month) : undefined
   const monthMax = month ? endOfMonthIso(month) : undefined
   const dateOutsideMonth =
@@ -84,6 +114,107 @@ export function PieceDataForm({
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5">
       <fieldset className="space-y-4 rounded-2xl bg-white p-4 ring-1 ring-iris-lilac">
+        <legend className="px-1 text-sm font-extrabold">Tipo de contenido</legend>
+        <ChoiceField
+          label="¿Qué vas a crear?"
+          name="kind"
+          required
+          value={values.kind}
+          onChange={(v) => chooseKind(v as ContentKind)}
+          options={(['publication', 'story'] as ContentKind[]).map((kind) => ({ value: kind, label: CONTENT_KIND_LABELS[kind] }))}
+          error={errors.kind}
+        />
+        {values.kind === 'publication' && (
+          <ChoiceField
+            label="Formato"
+            name="format"
+            required
+            value={values.format}
+            onChange={(v) => set('format', v as PieceFormValues['format'])}
+            options={PUBLICATION_FORMATS.map((format) => ({ value: format, label: FORMAT_LABELS[format] }))}
+            error={errors.format}
+          />
+        )}
+        {values.kind === 'story' && (
+          <>
+            <ChoiceField
+              label="Formato"
+              name="story_type"
+              required={!editing}
+              hint={editing && !initial.story_type ? 'Esta historia se cargó antes de poder elegir el formato. Podés elegirlo ahora.' : undefined}
+              value={values.story_type}
+              onChange={(v) => {
+                setValues((current) => switchStoryType(current, v as StoryType))
+                setErrors((current) => ({ ...current, story_type: undefined, image_count: undefined }))
+              }}
+              options={STORY_TYPES.map((type) => ({ value: type, label: STORY_TYPE_LABELS[type] }))}
+              error={errors.story_type}
+            />
+            {values.story_type === 'image_series' && (
+              <ChoiceField
+                label="Cantidad de imágenes"
+                name="image_count"
+                required
+                hint={imageCountHint(editing, frameCount ?? 0, values.image_count)}
+                value={values.image_count || (editing ? imageCountOption(frameCount ?? 0, values.images_open) : '')}
+                onChange={(v) => {
+                  // Volver a la opción que ya tiene = no tocar las pantallas.
+                  const current = editing ? imageCountOption(frameCount ?? 0, initial.images_open) : ''
+                  const same = editing && initial.story_type === 'image_series' && v === current
+                  setValues((prev) => ({
+                    ...prev,
+                    image_count: same ? '' : (v as ImageCount),
+                    images_open: same ? initial.images_open : v === '8+',
+                  }))
+                  setErrors((prev) => ({ ...prev, image_count: undefined }))
+                }}
+                options={IMAGE_COUNTS.map((count) => ({ value: count, label: IMAGE_COUNT_LABELS[count] }))}
+                error={errors.image_count}
+              />
+            )}
+            <ChoiceField
+              label="¿Tiene interacción?"
+              name="has_interaction"
+              value={values.has_interaction ? 'yes' : 'no'}
+              onChange={(v) => {
+                const yes = v === 'yes'
+                setValues((current) => ({ ...current, has_interaction: yes, interaction: yes ? current.interaction : 'none' }))
+                setErrors((current) => ({ ...current, interaction: undefined }))
+              }}
+              options={[
+                { value: 'no', label: 'No' },
+                { value: 'yes', label: 'Sí' },
+              ]}
+            />
+            {values.has_interaction && (
+              <ChoiceField
+                label="Tipo de interacción"
+                name="interaction"
+                required
+                hint="El detalle (pregunta y opciones) va en cada pantalla."
+                value={values.interaction === 'none' ? '' : values.interaction}
+                onChange={(v) => set('interaction', v as PieceFormValues['interaction'])}
+                options={[...STORY_INTERACTIONS, ...(initial.interaction === 'slider' ? (['slider'] as const) : [])].map((type) => ({
+                  value: type,
+                  label: INTERACTION_LABELS[type],
+                }))}
+                error={errors.interaction}
+              />
+            )}
+          </>
+        )}
+        {values.kind === 'publication' && initial.kind === 'publication' && initial.interaction !== 'none' && (
+          <SelectField
+            label="Interacción"
+            hint="Las publicaciones ya no llevan interacción; esta pieza la tenía cargada."
+            value={values.interaction}
+            onChange={(v) => set('interaction', v as PieceFormValues['interaction'])}
+            options={INTERACTIONS.map((interaction) => ({ value: interaction, label: INTERACTION_LABELS[interaction] }))}
+          />
+        )}
+      </fieldset>
+
+      <fieldset className="space-y-4 rounded-2xl bg-white p-4 ring-1 ring-iris-lilac">
         <legend className="px-1 text-sm font-extrabold">Lo básico</legend>
         <TextField label="Título" required value={values.title} onChange={(v) => set('title', v)} error={errors.title} />
         <TextArea
@@ -93,26 +224,16 @@ export function PieceDataForm({
           value={values.description}
           onChange={(v) => set('description', v)}
         />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <SelectField
-            label="Formato"
-            required
-            value={values.format}
-            onChange={(v) => set('format', v as PieceFormValues['format'])}
-            options={FORMATS.map((format) => ({ value: format, label: FORMAT_LABELS[format] }))}
-            error={errors.format}
-          />
-          <TextField
-            label="Fecha estimada"
-            hint="Recomendada: sin fecha no aparece en el calendario."
-            type="date"
-            value={values.estimated_date}
-            onChange={(v) => set('estimated_date', v)}
-            min={monthMin}
-            max={monthMax}
-            error={errors.estimated_date ?? dateOutsideMonth}
-          />
-        </div>
+        <TextField
+          label="Fecha estimada"
+          hint="Recomendada: sin fecha no aparece en el calendario."
+          type="date"
+          value={values.estimated_date}
+          onChange={(v) => set('estimated_date', v)}
+          min={monthMin}
+          max={monthMax}
+          error={errors.estimated_date ?? dateOutsideMonth}
+        />
       </fieldset>
 
       <fieldset className="space-y-4 rounded-2xl bg-white p-4 ring-1 ring-iris-lilac">
@@ -153,13 +274,6 @@ export function PieceDataForm({
             onChange={(v) => set('objective', v)}
             emptyLabel="Sin objetivo"
             options={OBJECTIVES.map((objective) => ({ value: objective, label: OBJECTIVE_LABELS[objective] }))}
-          />
-          <SelectField
-            label="Interacción"
-            hint="Resumen de la pieza (el detalle va en cada pantalla)."
-            value={values.interaction}
-            onChange={(v) => set('interaction', v as PieceFormValues['interaction'])}
-            options={INTERACTIONS.map((interaction) => ({ value: interaction, label: INTERACTION_LABELS[interaction] }))}
           />
         </div>
         <CheckboxField
@@ -247,4 +361,10 @@ function endOfMonthIso(month: MonthKey): string {
   const [year, m] = month.split('-').map(Number)
   const last = new Date(year, m, 0).getDate()
   return `${month}-${String(last).padStart(2, '0')}`
+}
+
+function imageCountHint(editing: boolean, frameCount: number, chosen: string): string {
+  if (!editing) return 'Se crean las pantallas vacías para completar después. "8 o más" crea 8 y podés agregar más.'
+  const now = `Hoy tiene ${frameCount} ${frameCount === 1 ? 'pantalla' : 'pantallas'}.`
+  return chosen ? `${now} Al guardar se agregan o se quitan pantallas al final.` : now
 }

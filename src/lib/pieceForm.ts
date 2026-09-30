@@ -3,11 +3,37 @@
 // propio flujo y el estado de producción por sus controles (§3.2).
 
 import { z } from 'zod'
-import type { InteractionType, Objective, PieceDetail, PieceFormat, PieceStatus } from './pieces'
+import {
+  CONTENT_KIND_LABELS,
+  contentKind,
+  INTERACTION_LABELS,
+  STORY_TYPE_LABELS,
+  type ContentKind,
+  type InteractionType,
+  type Objective,
+  type PieceDetail,
+  type PieceFormat,
+  type PieceStatus,
+  type StoryType,
+} from './pieces'
 
 export const FORMATS: PieceFormat[] = ['story', 'post', 'carousel', 'reel']
+export const PUBLICATION_FORMATS: PieceFormat[] = ['post', 'carousel', 'reel']
+export const STORY_TYPES: StoryType[] = ['image', 'image_series', 'video']
 export const OBJECTIVES: Objective[] = ['educate', 'leads', 'experience', 'engagement', 'brand']
 export const INTERACTIONS: InteractionType[] = ['none', 'poll', 'quiz', 'question', 'slider']
+// Interacciones que se ofrecen en una historia nueva. "Deslizador" solo se
+// muestra si la pieza ya lo tenía.
+export const STORY_INTERACTIONS: InteractionType[] = ['poll', 'question', 'quiz']
+
+// Cantidad de imágenes de una serie = cantidad de pantallas. "8 o más" crea
+// 8 pantallas y después se pueden agregar más; queda marcado en la pieza
+// (story_images_open) para no confundirlo con "8".
+export const IMAGE_COUNTS = ['2', '3', '4', '5', '6', '7', '8', '8+'] as const
+export type ImageCount = (typeof IMAGE_COUNTS)[number]
+export const IMAGE_COUNT_LABELS: Record<ImageCount, string> = {
+  '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '8+': '8 o más',
+}
 
 const optionalUrl = z
   .string()
@@ -20,7 +46,15 @@ export const pieceFormSchema = z.object({
   title: z.string().trim().min(1, 'El título es obligatorio.').max(300, 'El título es demasiado largo.'),
   // Opcional: puede quedar vacía.
   description: z.string(),
-  format: z.enum(['story', 'post', 'carousel', 'reel'], { message: 'Elegí un formato.' }),
+  // Primero se elige el tipo (Publicación / Historia) y después el formato.
+  // "kind" no se guarda: sale del formato.
+  kind: z.enum(['', 'publication', 'story']),
+  format: z.enum(['', 'story', 'post', 'carousel', 'reel']),
+  story_type: z.enum(['', 'image', 'image_series', 'video']),
+  // Cantidad elegida para una serie. Al editar, '' = dejar las pantallas como están.
+  image_count: z.enum(['', ...IMAGE_COUNTS]),
+  images_open: z.boolean(), // "8 o más" (se guarda en story_images_open)
+  has_interaction: z.boolean(),
   estimated_date: z
     .string()
     .refine((value) => value === '' || /^\d{4}-\d{2}-\d{2}$/.test(value), { message: 'Fecha inválida.' }),
@@ -43,7 +77,12 @@ export function emptyForm(): PieceFormValues {
   return {
     title: '',
     description: '',
-    format: 'post',
+    kind: '',
+    format: '',
+    story_type: '',
+    image_count: '',
+    images_open: false,
+    has_interaction: false,
     estimated_date: '',
     pillar_id: '',
     service_id: '',
@@ -63,7 +102,12 @@ export function formFromPiece(piece: PieceDetail): PieceFormValues {
   return {
     title: piece.title,
     description: piece.description ?? '',
+    kind: contentKind(piece.format),
     format: piece.format,
+    story_type: piece.story_type ?? '',
+    image_count: '',
+    images_open: piece.story_images_open,
+    has_interaction: piece.interaction !== 'none',
     estimated_date: piece.estimated_date ?? '',
     pillar_id: piece.pillar_id ?? '',
     service_id: piece.service_id ?? '',
@@ -81,19 +125,23 @@ export function formFromPiece(piece: PieceDetail): PieceFormValues {
 
 const orNull = (value: string) => (value.trim() === '' ? null : value.trim())
 
-// Columnas que guarda el formulario (mismas para crear y editar).
+// Columnas que guarda el formulario (mismas para crear y editar). Solo se
+// llama con un formulario válido (tipo y formato elegidos).
 export function piecePayload(values: PieceFormValues) {
+  const isStory = values.kind === 'story'
   return {
     title: values.title.trim(),
     description: orNull(values.description),
-    format: values.format,
+    format: (isStory ? 'story' : values.format) as PieceFormat,
+    story_type: isStory ? ((values.story_type || null) as StoryType | null) : null,
+    story_images_open: isStory && values.story_type === 'image_series' && values.images_open,
     estimated_date: orNull(values.estimated_date),
     pillar_id: orNull(values.pillar_id),
     service_id: orNull(values.service_id),
     series_id: orNull(values.series_id),
     project_id: orNull(values.project_id),
     objective: orNull(values.objective) as Objective | null,
-    interaction: values.interaction,
+    interaction: isStory && !values.has_interaction ? 'none' : values.interaction,
     needs_client_on_camera: values.needs_client_on_camera,
     script: orNull(values.script),
     publish_copy: orNull(values.publish_copy),
@@ -105,9 +153,13 @@ export function piecePayload(values: PieceFormValues) {
 export type FormErrors = Partial<Record<keyof PieceFormValues, string>>
 
 // Valida el formulario. `currentStatus` es el estado de producción actual
-// (al editar): la base no deja que una pieza en "Esperando grabación" o
-// "Grabado" deje de ser reel.
-export function validatePieceForm(values: PieceFormValues, currentStatus?: PieceStatus): FormErrors {
+// (solo al editar): la base no deja que una pieza en "Esperando grabación" o
+// "Grabado" deje de ser reel. `frameCount` son las pantallas que ya tiene.
+export function validatePieceForm(
+  values: PieceFormValues,
+  currentStatus?: PieceStatus,
+  { frameCount = 0 }: { frameCount?: number } = {},
+): FormErrors {
   const errors: FormErrors = {}
   const parsed = pieceFormSchema.safeParse(values)
   if (!parsed.success) {
@@ -116,10 +168,141 @@ export function validatePieceForm(values: PieceFormValues, currentStatus?: Piece
       errors[key] ??= issue.message
     }
   }
-  if (currentStatus && isReelOnlyStatus(currentStatus) && values.format !== 'reel') {
-    errors.format = 'Esta pieza está en un estado de grabación. Para cambiar el formato, primero pasala a "Por hacer" o "Editada".'
+  const editing = currentStatus !== undefined
+  if (values.kind === '') {
+    errors.kind = 'Elegí si es una publicación o una historia.'
+  } else if (values.kind === 'publication') {
+    if (!PUBLICATION_FORMATS.includes(values.format as PieceFormat)) errors.format = 'Elegí un formato.'
+  } else {
+    // Las historias creadas antes de este cambio pueden no tener formato: no
+    // se obliga a elegirlo para guardar otros cambios.
+    if (values.story_type === '' && !editing) errors.story_type = 'Elegí un formato.'
+    if (values.story_type === 'image_series' && values.image_count === '' && frameCount < 2 && !values.images_open) {
+      errors.image_count = 'Elegí la cantidad de imágenes.'
+    }
+    if (values.has_interaction && values.interaction === 'none') {
+      errors.interaction = 'Elegí el tipo de interacción.'
+    }
+  }
+  const finalFormat = values.kind === 'story' ? 'story' : values.format
+  if (currentStatus && isReelOnlyStatus(currentStatus) && values.kind !== '' && finalFormat !== 'reel') {
+    errors[values.kind === 'story' ? 'kind' : 'format'] =
+      'Esta pieza está en un estado de grabación. Para cambiar el formato, primero pasala a "Por hacer" o "Editada".'
   }
   return errors
+}
+
+// ---------------------------------------------------------------------------
+// Cambiar entre Publicación e Historia (o de formato de historia)
+// ---------------------------------------------------------------------------
+
+// Devuelve los valores nuevos y qué datos cargados se descartarían, para
+// pedir confirmación antes de perderlos.
+export function switchKind(values: PieceFormValues, next: ContentKind): { values: PieceFormValues; lost: string[] } {
+  if (values.kind === next) return { values, lost: [] }
+  const lost: string[] = []
+  if (next === 'publication') {
+    if (values.story_type) lost.push(`el formato de historia (${STORY_TYPE_LABELS[values.story_type]})`)
+    const count = values.image_count || (values.images_open ? '8+' : '')
+    if (values.story_type === 'image_series' && count) {
+      lost.push(`la cantidad de imágenes (${IMAGE_COUNT_LABELS[count]})`)
+    }
+    if (values.interaction !== 'none') {
+      lost.push(`la interacción (${INTERACTION_LABELS[values.interaction]})`)
+    }
+    return {
+      values: {
+        ...values,
+        kind: next,
+        format: '',
+        story_type: '',
+        image_count: '',
+        images_open: false,
+        has_interaction: false,
+        interaction: 'none',
+      },
+      lost,
+    }
+  }
+  if (values.script.trim()) lost.push('el guion (solo para reels)')
+  return {
+    values: {
+      ...values,
+      kind: next,
+      format: 'story',
+      story_type: '',
+      image_count: '',
+      images_open: false,
+      has_interaction: values.interaction !== 'none',
+      script: '',
+    },
+    lost,
+  }
+}
+
+export function lostDataMessage(next: ContentKind, lost: string[]): string {
+  return `Al cambiar a ${CONTENT_KIND_LABELS[next]} se descarta ${lost.join(', ')}. ¿Querés continuar?`
+}
+
+// Formato de historia: dejar de ser serie borra la cantidad elegida.
+export function switchStoryType(values: PieceFormValues, next: StoryType): PieceFormValues {
+  const series = next === 'image_series'
+  return { ...values, story_type: next, image_count: series ? values.image_count : '', images_open: series && values.images_open }
+}
+
+// ---------------------------------------------------------------------------
+// Cantidad de pantallas de una historia
+// ---------------------------------------------------------------------------
+
+// Opción del selector que corresponde a las pantallas que tiene la serie.
+// Con 8 pantallas, "8 o más" solo si se eligió así.
+export function imageCountOption(frameCount: number, open = false): ImageCount | '' {
+  if (frameCount < 2) return ''
+  if (frameCount > 8 || (frameCount === 8 && open)) return '8+'
+  return String(frameCount) as ImageCount
+}
+
+// Cuántas pantallas tiene que quedar teniendo la pieza al guardar, o null si
+// no hay que tocarlas. `initial` es la versión guardada (null al crear).
+//   · Serie con cantidad elegida → esa cantidad ("8 o más": al menos 8).
+//   · Cambió a Imagen o Video → una sola pantalla.
+export function targetFrameCount(values: PieceFormValues, initial: PieceFormValues | null, current: number): number | null {
+  if (values.kind !== 'story') return null
+  if (values.story_type === 'image_series' && values.image_count) {
+    const target = values.image_count === '8+' ? Math.max(8, current) : Number(values.image_count)
+    return target === current ? null : target
+  }
+  const changed = initial !== null && initial.story_type !== values.story_type
+  if ((values.story_type === 'image' || values.story_type === 'video') && changed && current > 1) return 1
+  return null
+}
+
+type SyncFrame = {
+  id: string
+  position: number
+  label: string | null
+  headline: string | null
+  body: string | null
+  visual_direction: string | null
+  closing: string | null
+  interaction: unknown
+}
+
+// Qué pantallas agregar (posiciones nuevas, al final) o quitar (las últimas).
+export function planFrameCount<T extends SyncFrame>(frames: T[], target: number): { add: number[]; remove: T[] } {
+  const ordered = [...frames].sort((a, b) => a.position - b.position)
+  if (target >= ordered.length) {
+    const last = ordered.at(-1)?.position ?? 0
+    return { add: Array.from({ length: target - ordered.length }, (_, i) => last + i + 1), remove: [] }
+  }
+  return { add: [], remove: ordered.slice(target) }
+}
+
+export function frameHasContent(frame: SyncFrame): boolean {
+  return (
+    [frame.label, frame.headline, frame.body, frame.visual_direction, frame.closing].some((text) => Boolean(text?.trim())) ||
+    frame.interaction != null
+  )
 }
 
 // ---------------------------------------------------------------------------

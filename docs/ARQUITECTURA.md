@@ -270,14 +270,17 @@ iris-hub/
 |---|---|
 | `member_role` | `admin` Admin · `editor` Editor · `approver` Aprobador · `viewer` Lector |
 | `piece_format` | `story` Historia · `post` Post · `carousel` Carrusel · `reel` Reel |
+| `story_type` | `image` Imagen · `image_series` Serie de imágenes · `video` Video (solo historias) |
 | `piece_status` | `todo` Por hacer · `awaiting_recording` Esperando grabación · `recorded` Grabado · `done` Diseñada/Editada · `published` Publicada · `archived` Archivada |
 | `review_status` | `pending` Sin revisar · `approved` Revisado · `changes_requested` Cambios pedidos |
 | `plan_status` | `draft` Borrador · `in_review` Enviada a revisión · `reviewed` Revisión completa · `closed` Cerrada |
 | `objective` | `educate` Educar · `leads` Generar consultas · `experience` Mostrar experiencia · `engagement` Interacción · `brand` Marca |
-| `interaction_type` | `none` · `poll` Encuesta · `quiz` Quiz · `question` Pregunta · `slider` Deslizador |
+| `interaction_type` | `none` · `poll` Encuesta · `quiz` Elegí la respuesta correcta · `question` Caja de preguntas · `slider` Deslizador |
 | `piece_origin` | `manual` · `ai` · `notion_import` |
 
 Regla: `awaiting_recording` y `recorded` solo son válidos cuando `format = 'reel'` (se controla con un `CHECK`).
+
+En la interfaz, al crear una pieza primero se elige **Publicación** (Post, Carrusel, Reel) o **Historia** (Imagen, Serie de imágenes, Video). "Publicación" o "Historia" no se guarda aparte: sale de `format`. La interacción (`interaction`) se carga en las historias: Encuesta (`poll`), Caja de preguntas (`question`) o Elegí la respuesta correcta (`quiz`).
 
 ### 6.2 Núcleo (V1)
 
@@ -330,6 +333,8 @@ Regla: `awaiting_recording` y `recorded` solo son válidos cuando `format = 'ree
 | title | text | |
 | description | text, null | "Descripción / idea": texto libre y opcional del equipo; no reemplaza objetivo, guion ni copy |
 | format | piece_format | |
+| story_type | story_type, null | solo si `format = 'story'` (se controla con un `CHECK`); null en las historias cargadas antes. La cantidad de imágenes de una serie son sus pantallas (`piece_frames`) |
+| story_images_open | bool | la serie se eligió como "8 o más" (empieza con 8 pantallas y se pueden agregar más); solo con `story_type = 'image_series'` |
 | platform | text | 'instagram' por defecto |
 | estimated_date | date, null | es una fecha estimativa |
 | status | piece_status | |

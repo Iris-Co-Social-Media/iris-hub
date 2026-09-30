@@ -11,6 +11,7 @@ import {
   interactionText,
   OBJECTIVE_LABELS,
   PLAN_STATUS_LABELS,
+  STORY_TYPE_LABELS,
   type PieceFrame,
 } from '../../lib/pieces'
 import { FormatBadge, ReviewBadge, StatusBadge } from '../mes/PieceBadges'
@@ -108,7 +109,13 @@ function PieceView({ slug, bundle, pillarName }: { slug: string; bundle: PieceBu
               ? `${capitalizeFirst(monthLabel(plan.month.slice(0, 7)))} · ${PLAN_STATUS_LABELS[plan.status]}`
               : 'Banco de ideas'}
           </Field>
-          <Field label="Formato">{FORMAT_LABELS[piece.format]} · Instagram</Field>
+          <Field label="Formato">
+            {FORMAT_LABELS[piece.format]}
+            {piece.story_type && ` · ${STORY_TYPE_LABELS[piece.story_type]}`}
+            {piece.story_type === 'image_series' &&
+              ` (${piece.story_images_open && frames.length >= 8 ? '8 o más: ' : ''}${frames.length} ${frames.length === 1 ? 'imagen' : 'imágenes'})`}
+            {' · Instagram'}
+          </Field>
           <Field label="Pilar">{pillarName ?? '—'}</Field>
           {names.service && <Field label="Servicio">{names.service}</Field>}
           {names.series && <Field label="Serie">{names.series}</Field>}

@@ -88,7 +88,7 @@ describe('textos para copiar', () => {
   it('arma la interacción con opciones y la correcta', () => {
     expect(
       interactionText({ type: 'quiz', question: '¿Qué pesa más?', options: ['Hormigón', 'Acero'], correct_index: 1 }),
-    ).toBe('Quiz: ¿Qué pesa más?\n- Hormigón\n- Acero ✓')
+    ).toBe('Elegí la respuesta correcta: ¿Qué pesa más?\n- Hormigón\n- Acero ✓')
     expect(interactionText(null)).toBe('')
   })
 

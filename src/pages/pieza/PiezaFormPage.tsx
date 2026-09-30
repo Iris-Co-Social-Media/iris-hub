@@ -2,14 +2,14 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { AppLayout } from '../../components/AppLayout'
 import { currentMonthKey, isMonthKey, monthLabel, type MonthKey } from '../../lib/dates'
-import { emptyForm, formFromPiece, type PieceFormValues } from '../../lib/pieceForm'
+import { emptyForm, formFromPiece, frameHasContent, planFrameCount, targetFrameCount, type PieceFormValues } from '../../lib/pieceForm'
 import { PLAN_STATUS_LABELS } from '../../lib/pieces'
 import { confirmLeave, useUnsavedGuard } from '../../lib/useUnsavedGuard'
 import { useClient, useIsTeam, useMonth } from '../mes/useMonthData'
 import { FramesEditor } from './FramesEditor'
 import { PieceDataForm } from './PieceDataForm'
 import { usePiece } from './usePieceData'
-import { ConflictError, useCreatePiece, useUpdatePiece } from './usePieceMutations'
+import { ConflictError, useCreatePiece, useSyncFrameCount, useUpdatePiece } from './usePieceMutations'
 
 // Crear y editar piezas (paso 5b.2). Solo el equipo de Iris; la base (RLS)
 // rechaza cualquier escritura de otras personas aunque llegaran hasta acá.
@@ -69,7 +69,10 @@ export function NuevaPiezaPage() {
         onSubmit={(values) =>
           create.mutate(
             { clientId: client.data!.id, planId: plan.id, values },
-            { onSuccess: (id) => navigate(`/${slug}/pieza/${id}/editar?creada=1`, { replace: true }) },
+            {
+              onSuccess: ({ id, framesFailed }) =>
+                navigate(`/${slug}/pieza/${id}/editar?creada=1${framesFailed ? '&pantallas=error' : ''}`, { replace: true }),
+            },
           )
         }
       />
@@ -85,6 +88,7 @@ export function EditarPiezaPage() {
   const isTeam = useIsTeam()
   const piece = usePiece(client.data?.id, pieceId)
   const update = useUpdatePiece()
+  const syncFrames = useSyncFrameCount()
 
   // Estado del formulario: se toma de la base al cargar, al guardar y cuando
   // la persona decide descartar sus cambios. Una recarga automática nunca
@@ -142,6 +146,14 @@ export function EditarPiezaPage() {
       {params.get('creada') && (
         <p className="mb-4 rounded-xl bg-iris-lime px-4 py-3 text-sm font-bold">✓ Pieza creada. Ahora podés agregar sus pantallas.</p>
       )}
+      {params.get('pantallas') === 'error' && (
+        <p role="alert" className="mb-4 rounded-xl bg-iris-lilac px-4 py-3 text-sm font-bold">
+          No se pudieron crear las pantallas de la serie. Agregalas abajo con "+ Agregar pantalla".
+        </p>
+      )}
+      {syncFrames.error && (
+        <p role="alert" className="mb-4 rounded-xl bg-iris-lilac px-4 py-3 text-sm font-bold">{syncFrames.error.message}</p>
+      )}
       {savedAt && !formDirty && <p className="mb-4 rounded-xl bg-iris-lime px-4 py-3 text-sm font-bold">✓ Datos guardados.</p>}
 
       {conflict && (
@@ -181,20 +193,49 @@ export function EditarPiezaPage() {
         publishCopyEnabled={client.data!.publish_copy_enabled}
         initial={formInitial}
         currentStatus={latest.status}
+        frameCount={piece.data.frames.length}
         submitLabel="Guardar datos"
         busy={update.isPending}
         serverError={update.error && !conflict ? update.error.message : null}
         onDirtyChange={setFormDirty}
         onCancel={() => confirmLeave(dirty) && navigate(detailPath)}
         onSubmit={(values) => {
+          // Historias: si cambió la cantidad de imágenes (o pasó a Imagen /
+          // Video), se ajustan las pantallas. Antes de quitar pantallas con
+          // contenido, se pide confirmación.
+          const frames = piece.data!.frames
+          // "8 o más" con menos de 8 pantallas (se quitaron a mano) deja de serlo.
+          if (values.images_open && values.image_count === '' && frames.length < 8) values = { ...values, images_open: false }
+          const target = targetFrameCount(values, formInitial, frames.length)
+          const plan = target === null ? null : planFrameCount(frames, target)
+          if (plan && plan.remove.length > 0) {
+            const withContent = plan.remove.filter((frame) => frameHasContent(frame) || dirtyFrames.has(frame.id))
+            const positions = plan.remove.map((frame) => frame.position).join(', ')
+            if (
+              withContent.length > 0 &&
+              !window.confirm(
+                `Al guardar se quitan ${plan.remove.length === 1 ? 'la pantalla' : 'las pantallas'} ${positions}. ` +
+                  `${withContent.length === 1 ? 'Una tiene' : `${withContent.length} tienen`} contenido que se va a perder. ¿Querés continuar?`,
+              )
+            ) {
+              return
+            }
+          }
           setSavedAt(null)
+          syncFrames.reset()
           update.mutate(
             { pieceId: latest.id, loadedUpdatedAt: base, values },
             {
               onSuccess: (updatedAt) => {
                 setBase(updatedAt)
-                setFormInitial(values)
+                setFormInitial({ ...values, image_count: '' })
+                // La cantidad elegida ya queda en las pantallas: el formulario
+                // se vuelve a armar con lo guardado.
+                if (values.image_count) setFormVersion((v) => v + 1)
                 setSavedAt(Date.now())
+                if (plan && (plan.add.length > 0 || plan.remove.length > 0)) {
+                  syncFrames.mutate({ pieceId: latest.id, add: plan.add, removeIds: plan.remove.map((frame) => frame.id) })
+                }
               },
             },
           )
