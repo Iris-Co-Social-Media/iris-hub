@@ -1,10 +1,14 @@
 # Iris & Co · Planificación — Documento de arquitectura
 
-> **Versión 1.0 — 29/09/2026**
+> **Versión 1.1 — 30/09/2026**
 > **Autoras:** Lucía Olivera y Milagros Cárdenas (Iris & Co)
 > **Primer cliente:** EIA — Estudio de Ingeniería Aplicada
 
 Este documento es la **fuente de verdad** del proyecto. Cualquier IA que trabaje en el código, ya sea Claude Code, Claude o ChatGPT, tiene que leerlo antes de hacer cambios. Si una decisión cambia, **primero se actualiza este documento** y después el código.
+
+**Cambios de la versión 1.1** (solo documentación, sin cambios funcionales):
+- El hosting se implementó en **Cloudflare Workers** (static assets), no en Cloudflare Pages. Se actualizaron D12, D14, §5 y §11.
+- Se agregó el paso **5b · Carga** al orden de construcción de la V1-alpha (§13), que ya formaba parte del alcance de la V1-alpha.
 
 ---
 
@@ -41,9 +45,9 @@ Este documento es la **fuente de verdad** del proyecto. Cualquier IA que trabaje
 | D9 | **Las fechas son estimativas.** No hay alertas de atraso. | Así trabajan ustedes y el cliente. |
 | D10 | **La IA nunca modifica el calendario directamente.** Siempre funciona así: Propuesta → Revisar → Aplicar. | Es un requisito del proyecto. |
 | D11 | **La V2 arranca en modo "copiar y pegar"** con ChatGPT o Claude, a USD 0. La conexión por API queda preparada. | El objetivo es costo cero. |
-| D12 | **Hosting en Cloudflare Pages, no en Vercel.** | Hasta donde sé, el plan gratis de Vercel es solo para uso no comercial. |
+| D12 | **Hosting en Cloudflare Workers (static assets), no en Vercel.** | Hasta donde sé, el plan gratis de Vercel es solo para uso no comercial. Cloudflare recomienda Workers para proyectos nuevos y soporta SPAs de React + Vite. |
 | D13 | **Todas las cuentas van a nombre del mail de Iris.** | El producto es de Iris & Co. |
-| D14 | **Dominio gratuito** del tipo `iris-co.pages.dev`. | No tiene contras funcionales. Se puede comprar un dominio propio más adelante. |
+| D14 | **Dominio gratuito** de Workers: `iris-hub.irisandco-socialmedia.workers.dev`. | No tiene contras funcionales. Se puede comprar un dominio propio más adelante. |
 | D15 | **Los mails salen desde el Gmail de Iris** con una contraseña de aplicación. | Es gratis y los mails llegan bien, sin caer en spam. |
 
 ---
@@ -172,7 +176,7 @@ Iris & Co · Planificación
 | Interfaz | **React + Vite + TypeScript + Tailwind CSS** | Gratis |
 | Navegación y datos | React Router, TanStack Query, supabase-js | Gratis |
 | Validación | Zod (formularios y respuestas de IA) | Gratis |
-| Hosting | **Cloudflare Pages** (deploy automático desde GitHub y vista previa por rama) | Gratis, uso comercial permitido |
+| Hosting | **Cloudflare Workers** con static assets (deploy automático desde GitHub con Workers Builds y Worker Previews por rama) | Gratis, uso comercial permitido |
 | Base de datos | **Supabase Postgres** | Free tier |
 | Ingreso | **Supabase Auth**: código OTP por mail y Google OAuth | Free tier |
 | Seguridad | **Row Level Security (RLS)** en todas las tablas | — |
@@ -184,13 +188,13 @@ Iris & Co · Planificación
 **¿Por qué este stack y no Next.js + Vercel?**
 - **El sitio es una aplicación privada detrás de un login.** No necesita SEO ni renderizado en servidor. Una SPA (una sola página que se arma en el navegador) con React + Vite es más simple, y las IAs la conocen muy bien.
 - **Toda la seguridad vive en la base de datos (RLS).** Así no hace falta un backend propio que mantener.
-- **Hasta donde sé, Vercel Hobby prohíbe el uso comercial,** y Cloudflare Pages no.
+- **Hasta donde sé, Vercel Hobby prohíbe el uso comercial,** y Cloudflare Workers no.
 
 ### 5.2 Diagrama
 
 ```
  Navegador (compu / celular)
-        │  React SPA  (Cloudflare Pages)
+        │  React SPA  (Cloudflare Workers)
         ▼
  ┌─────────────────────── Supabase ───────────────────────┐
  │  Auth (OTP + Google)  ──  hook: solo mails invitados    │
@@ -210,9 +214,10 @@ Iris & Co · Planificación
 
 - **Supabase "iris-prod":** los datos reales.
 - **Supabase "iris-pruebas":** para probar migraciones antes de aplicarlas en prod. El plan gratuito permite 2 proyectos.
-- **Cloudflare Pages:**
-  - la rama `main` se publica en el sitio real;
-  - las demás ramas generan una vista previa.
+- **Cloudflare Workers** (Worker `iris-hub`):
+  - la rama `main` se publica en el sitio real: `https://iris-hub.irisandco-socialmedia.workers.dev`;
+  - las demás ramas generan una **Worker Preview**: `https://<rama>-iris-hub.irisandco-socialmedia.workers.dev`;
+  - por ahora el sitio apunta a **iris-pruebas**; iris-prod todavía no está conectado. Para pasar a producción se cambian las dos variables de compilación (ver `docs/INGRESO.md`).
 
 ### 5.4 Estructura del repositorio
 
@@ -221,6 +226,7 @@ iris-hub/
 ├── CLAUDE.md            → "Leé docs/ARQUITECTURA.md antes de cualquier cambio"
 ├── AGENTS.md            → lo mismo, para ChatGPT/Codex
 ├── docs/ARQUITECTURA.md → este documento
+├── wrangler.jsonc       → configuración de Cloudflare Workers (sin secretos)
 ├── src/
 │   ├── pages/           → una carpeta por pantalla
 │   ├── components/
@@ -242,6 +248,10 @@ iris-hub/
 - **Límite de mails:** configurar el **SMTP propio** (Gmail) en Auth, porque el SMTP que trae Supabase por defecto tiene límites muy bajos.
 - **Puerto de envío:** hasta donde sé, las Edge Functions no permiten conexiones salientes a los puertos 25 y 587. Para Gmail, usar el **puerto 465 (SSL)**.
 - **Configuración de los proyectos de Supabase:** *Data API* activada, *Automatically expose new tables* **desactivada** y *automatic RLS* **activada**. Por eso, cada migración que cree una tabla tiene que incluir sus `GRANT` explícitos a los roles `authenticated` (y `anon` solo si hace falta), además de sus políticas RLS.
+- **Cloudflare Workers:**
+  - `wrangler.jsonc` sirve `./dist` como static assets con `not_found_handling: "single-page-application"`, así cualquier ruta de React Router funciona al entrar directo o recargar.
+  - Workers Builds: build `npm run build`, deploy `npx wrangler deploy` (rama `main`) y preview `npx wrangler preview` (demás ramas). Worker Previews necesita Wrangler 4.135.0 o posterior como dependencia del proyecto.
+  - `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` son **variables de compilación** (Settings → Build → Variables and secrets). Son datos públicos; nunca van claves secretas.
 - **Pausa por inactividad:** Supabase Free pausa el proyecto después de 7 días sin actividad. El workflow de GitHub Actions hace una consulta liviana una vez por semana.
 
 ---
@@ -584,7 +594,7 @@ Funciona con el mismo mecanismo, pero a nivel de pieza. La IA propone las pantal
 
 | Concepto | Costo |
 |---|---|
-| Cloudflare Pages, GitHub, Google OAuth | USD 0 |
+| Cloudflare Workers, GitHub, Google OAuth | USD 0 |
 | Supabase (2 proyectos gratuitos) | USD 0 |
 | Mails por Gmail SMTP | USD 0 |
 | IA en modo manual (ChatGPT Go / Claude que ya usan) | USD 0 extra |
@@ -648,11 +658,18 @@ Si la V1 se hace bien, las demás versiones **agregan tablas y pantallas sin reh
 
 ### Orden de construcción de la V1-alpha (para Claude Code)
 
-1. Proyecto Vite + React + TS + Tailwind, deploy en Cloudflare Pages.
+1. Proyecto Vite + React + TS + Tailwind, deploy en Cloudflare Workers.
 2. Migración SQL: enums, `clients`, `memberships`, `profiles`, `monthly_plans`, `pieces`, `piece_frames`, catálogos + RLS + funciones de ayuda.
 3. Ingreso: OTP de 6 dígitos + Google + hook de invitación + SMTP de Gmail.
 4. `seed.sql`: EIA, usuarios invitados, pilares, servicios y la serie.
 5. Pantallas: Mes (calendario + lista + cuota) → Pieza (con pantallas y copiar con un toque) → Revisión.
+
+   **5b · Carga.** Requisito del paso 7. Ya formaba parte del contenido de la V1-alpha ("planificación mensual (borrador / enviar a revisión) · piezas con pantallas · estados"):
+   - crear la planificación del mes y cambiar su estado (Borrador ↔ Enviada a revisión);
+   - crear y editar piezas con sus pantallas (agregar, editar, ordenar y quitar pantallas);
+   - cambiar el estado de producción y archivar.
+
+   Lo hace solo el equipo de Iris (admin y editor), con escritura directa protegida por RLS (§7). No requiere migraciones. Marcar como Publicada va por `mark_published` (paso 6).
 6. Funciones `review_piece` y `mark_published` + pruebas de permisos.
 7. Prueba real: Lucía y Milagros cargan 3 piezas, y Jonathan (o una cuenta de prueba con rol aprobador) las revisa desde el celular.
 

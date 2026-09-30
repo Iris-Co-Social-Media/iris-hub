@@ -6,7 +6,7 @@ Si una decisión cambia, primero se actualiza ese documento y después el códig
 ## Reglas obligatorias (resumen de la sección 0 del documento)
 
 - No agregar servicios pagos.
-- No cambiar el stack: React + Vite + TypeScript + Tailwind, Supabase, Cloudflare Pages.
+- No cambiar el stack: React + Vite + TypeScript + Tailwind, Supabase, Cloudflare Workers.
 - No desactivar la seguridad (RLS) para "hacer que funcione".
 - Todo cambio en la base de datos va como archivo de migración numerado en `supabase/migrations/`,
   con sus `GRANT` explícitos y sus políticas RLS (ver sección 5.5).
@@ -20,7 +20,7 @@ Si una decisión cambia, primero se actualiza ese documento y después el códig
 
 - `npm install` — instala dependencias.
 - `npm run dev` — sitio local en http://localhost:5173.
-- `npm run build` — verifica tipos y genera `dist/` (lo que publica Cloudflare Pages).
+- `npm run build` — verifica tipos y genera `dist/` (lo que publica Cloudflare Workers).
 - `npm run lint` — revisa el código.
 - `npm test` — pruebas de la lógica del sitio (fechas, cuota).
 - `npm run test:db` — aplica las migraciones en un Postgres local descartable y corre las pruebas de permisos.
