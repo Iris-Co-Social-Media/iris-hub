@@ -111,3 +111,103 @@ export function sortPieces<T extends Pick<PieceSummary, 'estimated_date' | 'titl
     return a.title.localeCompare(b.title, 'es')
   })
 }
+
+// ---------------------------------------------------------------------------
+// Detalle de una pieza (§6.2)
+// ---------------------------------------------------------------------------
+
+export type Objective = 'educate' | 'leads' | 'experience' | 'engagement' | 'brand'
+export type InteractionType = 'none' | 'poll' | 'quiz' | 'question' | 'slider'
+
+export const OBJECTIVE_LABELS: Record<Objective, string> = {
+  educate: 'Educar',
+  leads: 'Generar consultas',
+  experience: 'Mostrar experiencia',
+  engagement: 'Interacción',
+  brand: 'Marca',
+}
+
+export const INTERACTION_LABELS: Record<InteractionType, string> = {
+  none: 'Sin interacción',
+  poll: 'Encuesta',
+  quiz: 'Quiz',
+  question: 'Pregunta',
+  slider: 'Deslizador',
+}
+
+export type PieceDetail = PieceSummary & {
+  client_id: string
+  monthly_plan_id: string | null
+  platform: string
+  review_note: string | null
+  service_id: string | null
+  series_id: string | null
+  project_id: string | null
+  objective: Objective | null
+  interaction: InteractionType
+  script: string | null
+  publish_copy: string | null
+  canva_url: string | null
+  album_url: string | null
+  published_at: string | null
+}
+
+// Interacción de una pantalla: {type, question, options[], correct_index}.
+export type FrameInteraction = {
+  type?: string
+  question?: string
+  options?: unknown[]
+  correct_index?: number
+}
+
+export type PieceFrame = {
+  id: string
+  position: number
+  label: string | null
+  headline: string | null
+  body: string | null
+  visual_direction: string | null
+  interaction: FrameInteraction | null
+  closing: string | null
+}
+
+const clean = (text: string | null | undefined) => (text ?? '').trim()
+
+// Texto de la interacción listo para leer o copiar. Devuelve '' si no hay.
+export function interactionText(interaction: FrameInteraction | null): string {
+  if (!interaction) return ''
+  const lines: string[] = []
+  const type = interaction.type && interaction.type in INTERACTION_LABELS
+    ? INTERACTION_LABELS[interaction.type as InteractionType]
+    : clean(interaction.type)
+  const question = clean(interaction.question)
+  if (type || question) lines.push([type, question].filter(Boolean).join(': '))
+  const options = Array.isArray(interaction.options) ? interaction.options.map((o) => clean(String(o))).filter(Boolean) : []
+  options.forEach((option, index) => {
+    const correct = interaction.correct_index === index ? ' ✓' : ''
+    lines.push(`- ${option}${correct}`)
+  })
+  return lines.join('\n')
+}
+
+// Lo que se pega en Canva o Instagram: solo los textos que se publican
+// (principal, secundario, interacción y cierre), sin "Qué mostrar".
+export function frameCopyText(frame: PieceFrame): string {
+  return [clean(frame.headline), clean(frame.body), interactionText(frame.interaction), clean(frame.closing)]
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+// Todas las pantallas, cada una con su nombre.
+export function allFramesCopyText(frames: PieceFrame[]): string {
+  return [...frames]
+    .sort((a, b) => a.position - b.position)
+    .map((frame) => {
+      const text = frameCopyText(frame)
+      if (!text) return ''
+      const title = clean(frame.label) || `Pantalla ${frame.position}`
+      return `${title}\n${text}`
+    })
+    .filter(Boolean)
+    .join('\n\n———\n\n')
+}

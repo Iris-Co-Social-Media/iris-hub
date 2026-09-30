@@ -5,6 +5,7 @@ import { useAuth } from './lib/auth-context'
 import { IngresoPage } from './pages/ingreso/IngresoPage'
 import { InicioPage } from './pages/inicio/InicioPage'
 import { MesPage } from './pages/mes/MesPage'
+import { PiezaPage } from './pages/pieza/PiezaPage'
 
 export default function App() {
   return (
@@ -31,6 +32,14 @@ export default function App() {
           element={
             <RequireSession>
               <MesPage />
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/:slug/pieza/:pieceId"
+          element={
+            <RequireSession>
+              <PiezaPage />
             </RequireSession>
           }
         />

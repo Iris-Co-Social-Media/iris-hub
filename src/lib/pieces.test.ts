@@ -58,3 +58,46 @@ describe('etiquetas y orden', () => {
     expect(sorted.map((p) => p.title)).toEqual(['A', 'A2', 'C', 'B'])
   })
 })
+
+import { allFramesCopyText, frameCopyText, interactionText, type PieceFrame } from './pieces'
+
+const frame = (extra: Partial<PieceFrame>): PieceFrame => ({
+  id: 'f',
+  position: 1,
+  label: null,
+  headline: null,
+  body: null,
+  visual_direction: null,
+  interaction: null,
+  closing: null,
+  ...extra,
+})
+
+describe('textos para copiar', () => {
+  it('copia principal, secundario y cierre, sin "Qué mostrar"', () => {
+    const text = frameCopyText(
+      frame({ headline: 'Título ', body: 'Cuerpo', closing: 'Escribinos', visual_direction: 'Foto de obra' }),
+    )
+    expect(text).toBe('Título\n\nCuerpo\n\nEscribinos')
+  })
+
+  it('una pantalla vacía no copia nada', () => {
+    expect(frameCopyText(frame({ headline: '  ' }))).toBe('')
+  })
+
+  it('arma la interacción con opciones y la correcta', () => {
+    expect(
+      interactionText({ type: 'quiz', question: '¿Qué pesa más?', options: ['Hormigón', 'Acero'], correct_index: 1 }),
+    ).toBe('Quiz: ¿Qué pesa más?\n- Hormigón\n- Acero ✓')
+    expect(interactionText(null)).toBe('')
+  })
+
+  it('copia todas las pantallas en orden, con su nombre', () => {
+    const text = allFramesCopyText([
+      frame({ id: 'b', position: 2, headline: 'Segunda' }),
+      frame({ id: 'a', position: 1, label: 'Portada', headline: 'Primera' }),
+      frame({ id: 'c', position: 3 }),
+    ])
+    expect(text).toBe('Portada\nPrimera\n\n———\n\nPantalla 2\nSegunda')
+  })
+})

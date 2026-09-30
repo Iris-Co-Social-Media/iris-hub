@@ -163,7 +163,7 @@ function MonthScreen({ slug, month }: { slug: string; month: MonthKey }) {
             </div>
           ) : view === 'lista' ? (
             <div className="mt-4">
-              <PieceList pieces={pieces} pillarNames={pillarNames} />
+              <PieceList slug={slug} pieces={pieces} pillarNames={pillarNames} />
             </div>
           ) : (
             <div className="mt-4 space-y-4">
@@ -177,7 +177,7 @@ function MonthScreen({ slug, month }: { slug: string; month: MonthKey }) {
                 <section aria-label={`Piezas del ${dayLabel(selectedDay)}`}>
                   <h3 className="mb-2 text-sm font-extrabold">{capitalizeFirst(dayLabel(selectedDay))}</h3>
                   {piecesByDay.get(selectedDay)?.length ? (
-                    <PieceList pieces={piecesByDay.get(selectedDay)!} pillarNames={pillarNames} showDate={false} />
+                    <PieceList slug={slug} pieces={piecesByDay.get(selectedDay)!} pillarNames={pillarNames} showDate={false} />
                   ) : (
                     <p className="text-sm text-iris-violet/70">No hay piezas este día.</p>
                   )}
@@ -186,7 +186,7 @@ function MonthScreen({ slug, month }: { slug: string; month: MonthKey }) {
               {undated.length > 0 && (
                 <section aria-label="Piezas sin fecha en este mes">
                   <h3 className="mb-2 text-sm font-extrabold">Sin fecha en {monthLabel(month)}</h3>
-                  <PieceList pieces={undated} pillarNames={pillarNames} />
+                  <PieceList slug={slug} pieces={undated} pillarNames={pillarNames} />
                 </section>
               )}
             </div>
