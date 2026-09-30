@@ -16,6 +16,7 @@ import {
 import { FormatBadge, ReviewBadge, StatusBadge } from '../mes/PieceBadges'
 import { useClient, useIsTeam, usePillars } from '../mes/useMonthData'
 import { ProductionControls } from './ProductionControls'
+import { PublishControl } from './PublishControl'
 import { usePiece, type PieceBundle } from './usePieceData'
 
 // Pantalla "Pieza (detalle)" (docs/ARQUITECTURA.md §4): datos de la pieza y
@@ -79,6 +80,14 @@ function PieceView({ slug, bundle, pillarName }: { slug: string; bundle: PieceBu
         )}
       </header>
 
+      <PublishControl piece={piece} />
+      {piece.status === 'published' && (
+        <p className="mt-4 rounded-2xl bg-iris-violet px-4 py-3 text-sm font-bold text-white">
+          ✓ Publicada
+          {piece.published_at &&
+            ` el ${new Date(piece.published_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}`}
+        </p>
+      )}
       {isTeam && <ProductionControls piece={piece} />}
 
       {piece.review_status === 'changes_requested' && piece.review_note && (

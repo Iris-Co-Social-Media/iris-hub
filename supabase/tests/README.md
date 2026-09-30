@@ -19,4 +19,5 @@ Archivos:
 - `database/04_review_flow.test.sql` — ciclo de la pantalla Revisión: cambios pedidos con nota, corrección del equipo, Revisado, permisos y planificación cerrada.
 - `database/05_plan_management.test.sql` — crear la planificación (borrador, una por mes), enviar a revisión y volver a borrador; el cliente no puede crear ni modificar.
 - `database/06_piece_editing.test.sql` — crear y editar piezas y pantallas: valores por defecto, que no se toque la revisión, estados de producción, cambios al mismo tiempo y que el cliente no pueda editar.
+- `database/07_mark_published.test.sql` — marcar como Publicada: permisos, estados, datos intactos, publicar dos veces e historial.
 - `seed/seed.test.sql` — datos iniciales (`supabase/seed.sql`): contenido, RLS sobre esos datos y que correrlo dos veces no duplique ni pise ediciones. Corre en una base aparte con migraciones + seed.
