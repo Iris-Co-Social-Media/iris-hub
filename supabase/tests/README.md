@@ -15,3 +15,4 @@ Archivos:
 - `database/01_permissions.test.sql` — qué ve y qué puede hacer cada rol (admin, editor,
   aprobador, lector, otro cliente, sin invitación, acceso quitado, sin sesión).
 - `database/02_auth.test.sql` — hook de invitación, vinculación de invitaciones y perfiles.
+- `database/03_initial_admin.test.sql` — invitación inicial de admin: datos, hook, vinculación al entrar y claim_invitations.

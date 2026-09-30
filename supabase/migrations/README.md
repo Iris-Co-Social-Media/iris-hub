@@ -20,3 +20,4 @@ Reglas (ver `docs/ARQUITECTURA.md`, secciones 5.5 y 7):
 | `20260930120100_v1_rls.sql` | Funciones de ayuda (`is_team`, `is_admin`, `client_role`, `has_perm`…), `GRANT` y políticas RLS |
 | `20260930120200_v1_client_actions.sql` | Historial automático de piezas y acciones controladas (`review_piece`, `mark_published`, `add_comment`) |
 | `20260930130000_v1_auth.sql` | Ingreso por invitación: hook `before_user_created_hook`, vinculación de invitaciones y perfiles al crear la cuenta, `claim_invitations()` |
+| `20260930140000_v1_initial_admin_invitation.sql` | Solo datos: invitación de la primera admin de Iris (sin cuenta ni contraseña; se vincula al entrar) |
