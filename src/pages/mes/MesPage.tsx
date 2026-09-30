@@ -5,6 +5,7 @@ import { addMonths, capitalizeFirst, currentMonthKey, dayLabel, isMonthKey, mont
 import { computeQuota, PLAN_STATUS_LABELS, sortPieces, type PieceSummary } from '../../lib/pieces'
 import { reviewProgress } from '../../lib/review'
 import { MonthCalendar } from './MonthCalendar'
+import { CreatePlanButton, PlanStatusActions } from './PlanControls'
 import { PieceList } from './PieceList'
 import { QuotaSummary } from './QuotaSummary'
 import { useClient, useIsTeam, useMonth, usePillars } from './useMonthData'
@@ -129,8 +130,11 @@ function MonthScreen({ slug, month }: { slug: string; month: MonthKey }) {
             <div className="flex flex-wrap items-center gap-2 text-sm">
               {plan ? (
                 <>
-                  <span className="rounded-full bg-white px-3 py-1 font-semibold ring-1 ring-iris-lavender">
-                    {PLAN_STATUS_LABELS[plan.status]}
+                  <span className="text-iris-violet/70">
+                    Estado:{' '}
+                    <span className="rounded-full bg-white px-3 py-1 font-semibold text-iris-violet ring-1 ring-iris-lavender">
+                      {PLAN_STATUS_LABELS[plan.status]}
+                    </span>
                   </span>
                   <Link
                     to={`/${slug}/revision/${month}`}
@@ -138,6 +142,7 @@ function MonthScreen({ slug, month }: { slug: string; month: MonthKey }) {
                   >
                     Revisión {review.done}/{review.total} ›
                   </Link>
+                  <PlanStatusActions plan={plan} isTeam={isTeam.data ?? false} />
                 </>
               ) : (
                 <span className="text-iris-violet/70">Sin planificación</span>
@@ -166,7 +171,7 @@ function MonthScreen({ slug, month }: { slug: string; month: MonthKey }) {
           </div>
 
           {!plan ? (
-            <EmptyPlan isTeam={isTeam.data ?? false} month={month} />
+            <EmptyPlan isTeam={isTeam.data ?? false} month={month} clientId={client.data.id} />
           ) : pieces.length === 0 ? (
             <div className="mt-4 rounded-2xl bg-white p-6 text-center ring-1 ring-iris-lilac">
               <p className="font-bold">La planificación de {monthLabel(month)} todavía no tiene piezas.</p>
@@ -207,11 +212,14 @@ function MonthScreen({ slug, month }: { slug: string; month: MonthKey }) {
   )
 }
 
-function EmptyPlan({ isTeam, month }: { isTeam: boolean; month: MonthKey }) {
+function EmptyPlan({ isTeam, month, clientId }: { isTeam: boolean; month: MonthKey; clientId: string }) {
   return (
     <div className="mt-4 rounded-2xl bg-white p-6 text-center ring-1 ring-iris-lilac">
       {isTeam ? (
-        <p className="font-bold">Todavía no hay planificación de {monthLabel(month)}.</p>
+        <>
+          <p className="font-bold">Todavía no hay planificación de {monthLabel(month)}.</p>
+          <CreatePlanButton clientId={clientId} month={month} isTeam={isTeam} />
+        </>
       ) : (
         <>
           <p className="font-bold">Todavía no hay una planificación de {monthLabel(month)} para revisar.</p>

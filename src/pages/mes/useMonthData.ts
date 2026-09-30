@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { monthStartIso, type MonthKey } from '../../lib/dates'
 import type { MonthlyPlan, PieceSummary } from '../../lib/pieces'
+import { PLAN_ACTIONS, planUpdate, type PlanActionKey } from '../../lib/planStatus'
 import { supabase } from '../../lib/supabase'
 
 // Lecturas de la pantalla Mes. Todas pasan por RLS con la sesión de la
@@ -90,5 +91,63 @@ export function useMonth(clientId: string | undefined, month: MonthKey) {
       if (piecesError) throw piecesError
       return { plan, pieces: pieces ?? [] }
     },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Gestión de la planificación (paso 5b). Escritura directa protegida por RLS:
+// solo el equipo de Iris puede crear y editar monthly_plans (§7).
+// ---------------------------------------------------------------------------
+
+function useInvalidateMonth() {
+  const queryClient = useQueryClient()
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['month'] }),
+      queryClient.invalidateQueries({ queryKey: ['review'] }),
+      queryClient.invalidateQueries({ queryKey: ['piece'] }),
+    ])
+}
+
+export function useCreatePlan() {
+  const invalidate = useInvalidateMonth()
+  return useMutation({
+    mutationFn: async ({ clientId, month }: { clientId: string; month: MonthKey }) => {
+      // status queda en 'draft' por defecto en la base.
+      const { error } = await supabase()
+        .from('monthly_plans')
+        .insert({ client_id: clientId, month: monthStartIso(month) })
+      if (error) {
+        if (error.code === '23505') throw new Error('Este mes ya tiene una planificación. Recargamos la pantalla.')
+        if (error.code === '42501') throw new Error('No tenés permiso para crear planificaciones.')
+        throw new Error('No se pudo crear la planificación. Revisá tu conexión e intentá de nuevo.')
+      }
+    },
+    onSettled: invalidate,
+  })
+}
+
+export function useChangePlanStatus() {
+  const invalidate = useInvalidateMonth()
+  return useMutation({
+    mutationFn: async ({ plan, action }: { plan: MonthlyPlan; action: PlanActionKey }) => {
+      const allowedFrom = PLAN_ACTIONS[action].from
+      if (!allowedFrom.includes(plan.status)) {
+        throw new Error('Esta acción no corresponde al estado actual de la planificación.')
+      }
+      // Solo cambia si sigue en el estado que se ve en pantalla: si alguien la
+      // cambió mientras tanto, no se pisa.
+      const { data, error } = await supabase()
+        .from('monthly_plans')
+        .update(planUpdate(action))
+        .eq('id', plan.id)
+        .eq('status', plan.status)
+        .select('id')
+      if (error) throw new Error('No se pudo cambiar el estado. Revisá tu conexión e intentá de nuevo.')
+      if (!data || data.length === 0) {
+        throw new Error('No se pudo cambiar: puede que el estado ya haya cambiado o que no tengas permiso. Recargamos la pantalla.')
+      }
+    },
+    onSettled: invalidate,
   })
 }
