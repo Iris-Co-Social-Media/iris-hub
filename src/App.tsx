@@ -4,6 +4,7 @@ import { FullScreenMessage } from './components/AuthLayout'
 import { useAuth } from './lib/auth-context'
 import { IngresoPage } from './pages/ingreso/IngresoPage'
 import { InicioPage } from './pages/inicio/InicioPage'
+import { MesPage } from './pages/mes/MesPage'
 
 export default function App() {
   return (
@@ -22,6 +23,14 @@ export default function App() {
           element={
             <RequireSession>
               <InicioPage />
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/:slug/mes/:month?"
+          element={
+            <RequireSession>
+              <MesPage />
             </RequireSession>
           }
         />

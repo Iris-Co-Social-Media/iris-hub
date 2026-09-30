@@ -1,0 +1,94 @@
+import { useQuery } from '@tanstack/react-query'
+import { monthStartIso, type MonthKey } from '../../lib/dates'
+import type { MonthlyPlan, PieceSummary } from '../../lib/pieces'
+import { supabase } from '../../lib/supabase'
+
+// Lecturas de la pantalla Mes. Todas pasan por RLS con la sesión de la
+// persona: el equipo de Iris ve todo; un usuario del cliente ve solo su
+// cliente y nunca planificaciones en borrador (docs/ARQUITECTURA.md §7).
+
+export type ClientSummary = {
+  id: string
+  name: string
+  slug: string
+  logo_url: string | null
+  brand_colors: { primary?: string; secondary?: string; background?: string }
+  quota_posts: number
+  quota_stories: number
+}
+
+export type Pillar = { id: string; name: string }
+
+export function useIsTeam() {
+  return useQuery({
+    queryKey: ['is-team'],
+    queryFn: async (): Promise<boolean> => {
+      const { data, error } = await supabase().rpc('is_team')
+      if (error) throw error
+      return Boolean(data)
+    },
+    staleTime: 5 * 60_000,
+  })
+}
+
+export function useClient(slug: string) {
+  return useQuery({
+    queryKey: ['client', slug],
+    queryFn: async (): Promise<ClientSummary | null> => {
+      const { data, error } = await supabase()
+        .from('clients')
+        .select('id, name, slug, logo_url, brand_colors, quota_posts, quota_stories')
+        .eq('slug', slug)
+        .maybeSingle<ClientSummary>()
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+export function usePillars(clientId: string | undefined) {
+  return useQuery({
+    queryKey: ['pillars', clientId],
+    enabled: Boolean(clientId),
+    queryFn: async (): Promise<Pillar[]> => {
+      const { data, error } = await supabase()
+        .from('pillars')
+        .select('id, name')
+        .eq('client_id', clientId!)
+        .order('position')
+        .returns<Pillar[]>()
+      if (error) throw error
+      return data ?? []
+    },
+    staleTime: 5 * 60_000,
+  })
+}
+
+export type MonthData = { plan: MonthlyPlan | null; pieces: PieceSummary[] }
+
+export function useMonth(clientId: string | undefined, month: MonthKey) {
+  return useQuery({
+    queryKey: ['month', clientId, month],
+    enabled: Boolean(clientId),
+    queryFn: async (): Promise<MonthData> => {
+      const { data: plan, error: planError } = await supabase()
+        .from('monthly_plans')
+        .select('id, month, status, sent_for_review_at, notes')
+        .eq('client_id', clientId!)
+        .eq('month', monthStartIso(month))
+        .maybeSingle<MonthlyPlan>()
+      if (planError) throw planError
+      if (!plan) return { plan: null, pieces: [] }
+
+      const { data: pieces, error: piecesError } = await supabase()
+        .from('pieces')
+        .select(
+          'id, title, format, status, review_status, estimated_date, times_carried_over, pillar_id, needs_client_on_camera',
+        )
+        .eq('monthly_plan_id', plan.id)
+        .returns<PieceSummary[]>()
+      if (piecesError) throw piecesError
+      return { plan, pieces: pieces ?? [] }
+    },
+  })
+}

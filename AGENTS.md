@@ -22,4 +22,5 @@ Si una decisión cambia, primero se actualiza ese documento y después el códig
 - `npm run dev` — sitio local en http://localhost:5173.
 - `npm run build` — verifica tipos y genera `dist/` (lo que publica Cloudflare Pages).
 - `npm run lint` — revisa el código.
+- `npm test` — pruebas de la lógica del sitio (fechas, cuota).
 - `npm run test:db` — aplica las migraciones en un Postgres local descartable y corre las pruebas de permisos.

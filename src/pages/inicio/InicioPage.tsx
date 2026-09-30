@@ -1,16 +1,19 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
-import { AuthLayout } from '../../components/AuthLayout'
+import { Link } from 'react-router'
+import { AppLayout } from '../../components/AppLayout'
 import { useAuth } from '../../lib/auth-context'
+import { currentMonthKey } from '../../lib/dates'
 import { supabase } from '../../lib/supabase'
 import { ROLE_LABELS, type MyMembership } from '../../lib/types'
 
-// Pantalla provisoria del paso 3: confirma que el ingreso funciona y muestra
-// con qué rol entró la persona. Se reemplaza en el paso 5 por las pantallas reales.
+type ClientLink = { id: string; name: string; slug: string; brand_colors: { primary?: string } }
+
+// Inicio provisorio: tus accesos y los clientes que podés ver (RLS decide
+// cuáles), con acceso directo al mes actual. El resumen de todos los clientes
+// (§4) llega más adelante.
 export function InicioPage() {
   const { session } = useAuth()
   const userId = session?.user.id
-  const [leaving, setLeaving] = useState(false)
 
   const memberships = useQuery({
     queryKey: ['my-memberships', userId],
@@ -31,50 +34,72 @@ export function InicioPage() {
     },
   })
 
-  async function handleSignOut() {
-    setLeaving(true)
-    await supabase().auth.signOut()
-  }
+  const clients = useQuery({
+    queryKey: ['clients', userId],
+    enabled: memberships.isSuccess,
+    queryFn: async (): Promise<ClientLink[]> => {
+      const { data, error } = await supabase()
+        .from('clients')
+        .select('id, name, slug, brand_colors')
+        .eq('active', true)
+        .order('name')
+        .returns<ClientLink[]>()
+      if (error) throw error
+      return data ?? []
+    },
+  })
 
   return (
-    <AuthLayout>
-      <h2 className="text-lg font-bold">¡Estás adentro!</h2>
-      <p className="mt-2 text-sm">
-        Entraste como <strong className="break-all">{session?.user.email}</strong>.
-      </p>
+    <AppLayout>
+      <h1 className="text-2xl font-extrabold">Inicio</h1>
 
-      <div className="mt-4 rounded-2xl bg-iris-cream p-4 ring-1 ring-iris-lilac">
-        {memberships.isPending && <p className="text-sm">Cargando tus accesos…</p>}
-        {memberships.isError && (
-          <p className="text-sm">No pudimos cargar tus accesos. Probá recargar la página.</p>
-        )}
-        {memberships.data && memberships.data.length === 0 && (
-          <p className="text-sm">
-            Tu cuenta todavía no tiene acceso activo. Si creés que es un error, escribile a Iris &amp; Co.
-          </p>
-        )}
-        {memberships.data && memberships.data.length > 0 && (
-          <ul className="space-y-2 text-sm">
-            {memberships.data.map((membership) => (
-              <li key={membership.id} className="flex flex-wrap justify-between gap-2">
-                <span>{membership.client_id ? (membership.clients?.name ?? 'Cliente') : 'Equipo de Iris & Co'}</span>
-                <span className="rounded-full bg-iris-lavender px-3 py-0.5 font-semibold">
-                  {ROLE_LABELS[membership.role]}
-                </span>
+      {memberships.isPending && <p className="mt-4 text-sm">Cargando tus accesos…</p>}
+      {memberships.isError && (
+        <p className="mt-4 text-sm">No pudimos cargar tus accesos. Probá recargar la página.</p>
+      )}
+      {memberships.data && memberships.data.length === 0 && (
+        <p className="mt-4 rounded-2xl bg-white p-4 text-sm ring-1 ring-iris-lilac">
+          Tu cuenta todavía no tiene acceso activo. Si creés que es un error, escribile a Iris &amp; Co.
+        </p>
+      )}
+      {memberships.data && memberships.data.length > 0 && (
+        <ul className="mt-3 flex flex-wrap gap-2 text-sm">
+          {memberships.data.map((membership) => (
+            <li key={membership.id} className="rounded-full bg-white px-3 py-1 ring-1 ring-iris-lilac">
+              {membership.client_id ? (membership.clients?.name ?? 'Cliente') : 'Equipo de Iris & Co'} ·{' '}
+              <strong>{ROLE_LABELS[membership.role]}</strong>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {clients.data && clients.data.length > 0 && (
+        <section className="mt-6">
+          <h2 className="text-lg font-extrabold">Clientes</h2>
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {clients.data.map((client) => (
+              <li key={client.id}>
+                <Link
+                  to={`/${client.slug}/mes/${currentMonthKey()}`}
+                  className="flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-iris-lilac hover:ring-iris-violet"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-extrabold text-white"
+                    style={{ backgroundColor: client.brand_colors?.primary ?? '#421869' }}
+                  >
+                    {client.name.slice(0, 3).toUpperCase()}
+                  </span>
+                  <span>
+                    <span className="block font-bold">{client.name}</span>
+                    <span className="block text-sm text-iris-violet/70">Ver planificación del mes ›</span>
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>
-        )}
-      </div>
-
-      <button
-        type="button"
-        onClick={handleSignOut}
-        disabled={leaving}
-        className="mt-6 w-full rounded-xl border border-iris-lavender bg-white px-4 py-3 text-base font-bold disabled:opacity-60"
-      >
-        {leaving ? 'Saliendo…' : 'Salir'}
-      </button>
-    </AuthLayout>
+        </section>
+      )}
+    </AppLayout>
   )
 }
