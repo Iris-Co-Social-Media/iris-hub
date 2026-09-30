@@ -43,10 +43,19 @@ insert into public.memberships (email, user_id, client_id, role, can_mark_publis
   ('aprobador@otro.test', '11111111-0000-0000-0000-000000000006', 'cccccccc-0000-0000-0000-000000000002', 'approver', false, false, true),
   ('ex@eia.test',         '11111111-0000-0000-0000-000000000008', 'cccccccc-0000-0000-0000-000000000001', 'approver', false, false, false);
 
-insert into public.profiles (id, full_name) values
-  ('11111111-0000-0000-0000-000000000001', 'Lucía'),
-  ('11111111-0000-0000-0000-000000000003', 'Jonathan'),
-  ('11111111-0000-0000-0000-000000000006', 'Aprobador Otro');
+-- Los perfiles ya existen: los crea el trigger de cuentas nuevas (paso 3).
+update public.profiles p set full_name = v.full_name
+from (values
+  ('11111111-0000-0000-0000-000000000001'::uuid, 'Lucía'),
+  ('11111111-0000-0000-0000-000000000002'::uuid, 'Editor Iris'),
+  ('11111111-0000-0000-0000-000000000003'::uuid, 'Jonathan'),
+  ('11111111-0000-0000-0000-000000000004'::uuid, 'Padre'),
+  ('11111111-0000-0000-0000-000000000005'::uuid, 'Julieta'),
+  ('11111111-0000-0000-0000-000000000006'::uuid, 'Aprobador Otro'),
+  ('11111111-0000-0000-0000-000000000007'::uuid, 'Sin invitación'),
+  ('11111111-0000-0000-0000-000000000008'::uuid, 'Ex EIA')
+) as v(id, full_name)
+where p.id = v.id;
 
 insert into public.monthly_plans (id, client_id, month, status) values
   ('dddddddd-0000-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000001', '2026-10-01', 'in_review'),
@@ -212,8 +221,8 @@ select is((select count(*)::int from public.activity_log), 0, 'aprobador: no ve 
 select is((select count(*)::int from public.memberships), 1, 'aprobador: solo ve su propia membresía');
 select results_eq(
   $$ select full_name from public.profiles order by full_name $$,
-  array['Jonathan', 'Lucía'],
-  'aprobador: ve perfiles de Iris y de su cliente, no de otros clientes'
+  array['Editor Iris', 'Jonathan', 'Julieta', 'Lucía', 'Padre'],
+  'aprobador: ve perfiles de Iris y de su cliente; no de otros clientes, sin invitación ni con acceso quitado'
 );
 
 -- Manipular client_id no da acceso a otro cliente.

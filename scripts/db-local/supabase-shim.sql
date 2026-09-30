@@ -13,31 +13,32 @@
 create role anon nologin noinherit;
 create role authenticated nologin noinherit;
 create role service_role nologin noinherit bypassrls;
+-- Rol con el que Supabase Auth llama a los hooks.
+create role supabase_auth_admin nologin noinherit;
 
 create schema auth;
 create schema extensions;
 grant usage on schema auth, extensions, public to anon, authenticated, service_role;
 
 create table auth.users (
-  id    uuid primary key,
-  email text
+  id                 uuid primary key,
+  email              text,
+  email_confirmed_at timestamptz,
+  raw_user_meta_data jsonb
 );
 
 -- Igual que en Supabase: el usuario sale del JWT de la request.
 create function auth.uid() returns uuid language sql stable as $$
-  select nullif(
-    coalesce(
-      current_setting('request.jwt.claim.sub', true),
-      current_setting('request.jwt.claims', true)::jsonb ->> 'sub'
-    ),
-    ''
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
   )::uuid
 $$;
 
 create function auth.role() returns text language sql stable as $$
   select coalesce(
-    current_setting('request.jwt.claim.role', true),
-    current_setting('request.jwt.claims', true)::jsonb ->> 'role'
+    nullif(current_setting('request.jwt.claim.role', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role')
   )
 $$;
 
